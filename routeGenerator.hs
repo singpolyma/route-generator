@@ -1,6 +1,7 @@
 module Main where
 
 import System.Environment (getArgs)
+import System.IO (hPutStrLn, stderr)
 import Data.List (intercalate)
 import Data.Char (isUpper, isSpace)
 import Data.Maybe (catMaybes, isJust)
@@ -92,15 +93,19 @@ parser = many1 $ do
 
 main :: IO ()
 main = do
-	[input, mod] <- getArgs
-	Right routes <- fmap (parseOnly parser) $ T.readFile input
+	args <- getArgs
+	case args of
+		[input, mod] -> do
+			Right routes <- fmap (parseOnly parser) $ T.readFile input
 
-	putStrLn "module Routes where"
-	putStrLn ""
-	putStrLn $ "import " ++ mod
-	putStrLn "import Control.Monad (ap)"
-	putStrLn "import Data.Text (pack)"
-	putStrLn "import Web.PathPieces (fromPathPiece)"
-	putStrLn "import Yesod.Routes.Dispatch (Route(..), Piece(Static, Dynamic))"
-	putStrLn ""
-	emitRoutes routes
+			putStrLn "module Routes where"
+			putStrLn ""
+			putStrLn $ "import " ++ mod
+			putStrLn "import Control.Monad (ap)"
+			putStrLn "import Data.Text (pack)"
+			putStrLn "import Web.PathPieces (fromPathPiece)"
+			putStrLn "import Yesod.Routes.Dispatch (Route(..), Piece(Static, Dynamic))"
+			putStrLn ""
+			emitRoutes routes
+		_ ->
+			hPutStrLn stderr "Usage: ./routeGenerator <input file> <implementation module>"
