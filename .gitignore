@@ -2,3 +2,5 @@ dist
 *.o
 *.hi
 report.html
+example/Main
+example/Routes.hs

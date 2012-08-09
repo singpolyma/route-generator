@@ -1,0 +1,4 @@
+GET / => home
+GET /test/: => test
+GET /test2/: => test2
+GET /test3/:/* => test3
