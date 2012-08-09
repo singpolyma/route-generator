@@ -37,7 +37,7 @@ emitRoutes rs = do
 	showRoute r =
 		"\t\tRoute {\n" ++
 		"\t\t\trhPieces = " ++
-		show ((Static (method r)):(pieces r)) ++
+		show (Static (method r) : pieces r) ++
 		",\n" ++
 
 		"\t\t\trhHasMulti = " ++
@@ -57,13 +57,13 @@ emitRoutes rs = do
 	piecesAp pieces = concat $ fst $ foldr (\p (ps,c) -> case p of
 			Dynamic -> ((" `ap` (fromPathPiece val" ++ show c ++ ")"):ps, c+1)
 			Static _ -> (ps, c)
-		) ([],0) pieces
+		) ([],0::Int) pieces
 
 	piecesPattern pieces = intercalate ":" $ ("_":) $ fst $
 		foldr (\p (ps,c) -> case p of
 			Dynamic -> (("val" ++ show c):ps, c+1)
 			Static _ -> ("_":ps, c)
-		) (["_"],0) pieces
+		) (["_"],0::Int) pieces
 
 parser :: Parser [Route]
 parser = many1 $ do
@@ -87,9 +87,10 @@ parser = many1 $ do
 		_ <- char '/'
 		option Nothing (fmap Just piece)
 	piece = dynamic <|> static
-	static = fmap (Static) (takeWhile1 (\x -> x /= '/' && x /= '*' && not (isSpace x)))
+	static = fmap Static (takeWhile1 (\x -> x /= '/' && x /= '*' && not (isSpace x)))
 	dynamic = char ':' >> return Dynamic
 
+main :: IO ()
 main = do
 	[input, mod] <- getArgs
 	Right routes <- fmap (parseOnly parser) $ T.readFile input
