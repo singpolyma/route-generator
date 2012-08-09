@@ -59,4 +59,4 @@ executable routeGenerator
 
 source-repository head
         type:     git
-        location: git://github.com/route-generator/BitBrawl.git
+        location: git://github.com/singpolyma/route-generator.git
