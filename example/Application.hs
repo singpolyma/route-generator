@@ -17,13 +17,13 @@ textToUTF8 txt = LZ.fromChunks [T.encodeUtf8 txt]
 showUTF8 :: (Show a) => a -> LZ.ByteString
 showUTF8 = textToUTF8 . T.pack . show
 
-home _ = return $ responseLBS ok200 [("Content-Type", "text/plain")] "Hello World"
-
-test val _ = return $ responseLBS ok200 [("Content-Type", "text/plain")] (textToUTF8 val)
-
 on404 _ = return $ responseLBS notFound404 [("Content-Type", "text/plain")] "Not Found"
 
-test2 :: Integer -> Application
-test2 val _ = return $ responseLBS ok200 [("Content-Type", "text/plain")] (showUTF8 val)
+home _ _ = return $ responseLBS ok200 [("Content-Type", "text/plain")] "Hello World"
 
-test3 val env = return $ responseLBS ok200 [("Content-Type", "text/plain")] (textToUTF8 val `mappend` "\n\n" `mappend` showUTF8 (pathInfo env))
+test _ val _ = return $ responseLBS ok200 [("Content-Type", "text/plain")] (textToUTF8 val)
+
+test2 :: String -> Integer -> Application
+test2 _ val _ = return $ responseLBS ok200 [("Content-Type", "text/plain")] (showUTF8 val)
+
+test3 some val env = return $ responseLBS ok200 [("Content-Type", "text/plain")] (textToUTF8 val `mappend` "\n\n" `mappend` showUTF8 (pathInfo env) `mappend` "\n\n" `mappend` showUTF8 some)

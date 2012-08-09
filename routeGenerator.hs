@@ -26,15 +26,20 @@ instance Show Piece where
 	show Dynamic = "Dynamic"
 	show (Static s) = "Static (pack " ++ show (T.unpack s) ++ ")"
 
-emitRoutes :: [Route] -> IO ()
-emitRoutes rs = do
+emitRoutes :: [Route] -> Int -> IO ()
+emitRoutes rs nArgs = do
 	-- We want to be polymorphic in the parameter to route, so just let
 	-- the inference engine do it all
 	-- putStrLn "routes :: [Route a]"
-	putStrLn "routes = ["
+	putStr "routes "
+	putStr $ unwords args
+	putStrLn " = ["
 	putStrLn $ intercalate ",\n" $ map showRoute rs
 	putStrLn "\t]"
 	where
+	args = args' nArgs
+	args' 0 = []
+	args' n = ("arg" ++ show n) : args' (n-1)
 	showRoute r =
 		"\t\tRoute {\n" ++
 		"\t\t\trhPieces = " ++
@@ -47,8 +52,9 @@ emitRoutes rs = do
 
 		"\t\t\trhDispatch = (\\(" ++
 		piecesPattern (pieces r) ++
-		") -> (return " ++
+		") -> (return $ " ++
 		T.unpack (target r) ++
+		" " ++ unwords args ++
 		")" ++
 		piecesAp (pieces r) ++
 		")\n" ++
@@ -94,18 +100,20 @@ parser = many1 $ do
 main :: IO ()
 main = do
 	args <- getArgs
-	case args of
-		[input, mod] -> do
-			Right routes <- fmap (parseOnly parser) $ T.readFile input
+	main' args
+	where
+	main' [input, mod, nArgs] = do
+		Right routes <- fmap (parseOnly parser) $ T.readFile input
 
-			putStrLn "module Routes where"
-			putStrLn ""
-			putStrLn $ "import " ++ mod
-			putStrLn "import Control.Monad (ap)"
-			putStrLn "import Data.Text (pack)"
-			putStrLn "import Web.PathPieces (fromPathPiece)"
-			putStrLn "import Yesod.Routes.Dispatch (Route(..), Piece(Static, Dynamic))"
-			putStrLn ""
-			emitRoutes routes
-		_ ->
-			hPutStrLn stderr "Usage: ./routeGenerator <input file> <implementation module>"
+		putStrLn "module Routes where"
+		putStrLn ""
+		putStrLn $ "import " ++ mod
+		putStrLn "import Control.Monad (ap)"
+		putStrLn "import Data.Text (pack)"
+		putStrLn "import Web.PathPieces (fromPathPiece)"
+		putStrLn "import Yesod.Routes.Dispatch (Route(..), Piece(Static, Dynamic))"
+		putStrLn ""
+		emitRoutes routes (read nArgs)
+	main' [input, mod] = main' [input, mod, "0"]
+	main' _ =
+		hPutStrLn stderr "Usage: ./routeGenerator <input file> <implementation module> [<number of extra args>]"
