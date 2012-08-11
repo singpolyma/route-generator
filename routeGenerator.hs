@@ -52,7 +52,7 @@ emitRoutes rs nArgs = do
 
 		"\t\t\trhDispatch = (\\(" ++
 		piecesPattern (pieces r) ++
-		") -> (return $ " ++
+		") -> return (" ++
 		T.unpack (target r) ++
 		" " ++ unwords args ++
 		")" ++
