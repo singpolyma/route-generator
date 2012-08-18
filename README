@@ -13,7 +13,7 @@ Example:
 > GET /post/: => showPost
 > PUT /*      => updateSomething
 
-> ./routeGenerator -m SomeModule routes.txt
+> ./routeGenerator -r -m SomeModule routes.txt
 
 Will generate routes that map the correct HTTP verb (which you should
 pass as a prepended "path segment" to your Dispatch) and path to

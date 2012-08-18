@@ -17,13 +17,14 @@ import qualified Data.Text.IO as T
 import Data.Attoparsec.Text
 import Control.Applicative
 
-data Flag = Help | PathHelpers | NArgs Int | Mod String deriving (Show, Read, Eq)
+data Flag = Help | PathHelpers | Routes | NArgs Int | Mod String deriving (Show, Read, Eq)
 
 flags :: [OptDescr Flag]
 flags = [
+		Option ['r'] ["routes"] (NoArg Routes) "Generate routes.",
+		Option ['p'] ["pathHelpers"] (NoArg PathHelpers) "Generate actionPath helper functions.",
 		Option ['m'] ["module"] (ReqArg Mod "MODULE") "Implementation module to import.",
 		Option ['n'] ["nArgs"] (ReqArg (NArgs . read) "NARGS") "Number of arguments the `route` function takes.",
-		Option ['p'] ["pathHelpers"] (NoArg PathHelpers) "Generate actionPath helper functions.",
 		Option ['h'] ["help"] (NoArg Help) "Show this help text."
 	]
 
@@ -31,7 +32,7 @@ usage :: [String] -> IO ()
 usage errors = do
 	mapM_ (hPutStrLn stderr) errors
 	name <- getProgName
-	hPutStrLn stderr $ usageInfo (name ++ " [-m MODULE] [-n NARGS] [-p] <input-file>") flags
+	hPutStrLn stderr $ usageInfo (name ++ " -r -p [-m MODULE] [-n NARGS] <input-file>") flags
 
 data Route = Route {
 		method :: Text,
@@ -155,28 +156,40 @@ main = do
 		_ | Help `elem` flags -> usage errors
 		(_, _:_) -> usage errors >> exitFailure
 		_ | length args /= 1 -> usage errors >> exitFailure
+		_ | (Routes `notElem` flags) && (PathHelpers `notElem` flags) -> do
+			hPutStrLn stderr "Must pass -r or -p"
+			usage errors >> exitFailure
 		_ -> main' (head args) flags
 	where
 	main' input flags = do
 		Right routes <- fmap (parseOnly parser) $ T.readFile input
 
-		putStrLn "module Routes where"
-		putStrLn ""
+		when (Routes `elem` flags) $ do
+			putStrLn "module Routes where"
+			putStrLn ""
+
 		mapM_ (\flag -> case flag of
 				Mod m -> putStrLn $ "import " ++ m
 				_ -> return ()
 			) flags
-		putStrLn "import Data.List (intercalate)"
-		putStrLn "import Control.Monad (ap)"
-		putStrLn "import Data.Text (pack, unpack)"
-		putStrLn "import Network.URI (URI(..))"
-		putStrLn "import Web.PathPieces (fromPathPiece, toPathPiece)"
-		putStrLn "import Yesod.Routes.Dispatch (Route(..), Piece(Static, Dynamic))"
+
+		when (Routes `elem` flags) $ do
+			putStrLn "import Control.Monad (ap)"
+			putStrLn "import Data.Text (pack)"
+			putStrLn "import Web.PathPieces (fromPathPiece)"
+			putStrLn "import Yesod.Routes.Dispatch (Route(..), Piece(Static, Dynamic))"
+
+		when (PathHelpers `elem` flags) $ do
+			putStrLn "import Data.List (intercalate)"
+			putStrLn "import Network.URI (URI(..))"
+			putStrLn "import Data.Text (unpack)"
+			putStrLn "import Web.PathPieces (toPathPiece)"
+
 		putStrLn ""
 
 		let nArgs = getNArgs flags
 		when (PathHelpers `elem` flags) (emitPathHelpers routes nArgs)
-		emitRoutes routes nArgs
+		when (Routes `elem` flags)  (emitRoutes routes nArgs)
 
 	getNArgs = foldr (\flag n -> case (n,flag) of
 			(0, NArgs n) -> n
