@@ -9,6 +9,7 @@ import Data.List (intercalate)
 import Data.Char (isUpper, isSpace)
 import Data.Maybe (catMaybes, isJust)
 import Yesod.Routes.Dispatch (Piece(Static, Dynamic))
+import Network.URI (escapeURIString, isReserved, isUnescapedInURI)
 
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -61,6 +62,7 @@ multiArg _ = 0
 emitPathHelpers :: [Route] -> Int -> IO ()
 emitPathHelpers rs nArgs = mapM_ emitPathHelper rs
 	where
+	doEscapeURI = escapeURIString (\c -> not (isReserved c || not (isUnescapedInURI c))) . T.unpack
 	escapeURI = "(escapeURIString (\\c -> not (isReserved c || not (isUnescapedInURI c))) . unpack)"
 	emitPathHelper r = do
 		let args = argList "arg" (length (filter isDynamic (pieces r)) + multiArg r)
@@ -70,7 +72,7 @@ emitPathHelpers rs nArgs = mapM_ emitPathHelper rs
 		putStr " = URI \"\" Nothing ('/' : intercalate \"/\" (["
 		putStr $ intercalate ", " $ snd $ foldr (\p (n,xs) -> case p of
 				Dynamic -> (n-1, (escapeURI ++ " $ toPathPiece arg" ++ show n):xs)
-				Static s -> (n, show s : xs)
+				Static s -> (n, show (doEscapeURI s) : xs)
 			) (length args - multiArg r, []) (pieces r)
 		putStr "]"
 		when (multi r) (putStr $ " ++ map " ++ escapeURI ++ " (toPathMultiPiece arg" ++ show (length args) ++ ")")

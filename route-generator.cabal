@@ -55,7 +55,8 @@ executable routeGenerator
                 base == 4.*,
                 text >= 0.7,
                 attoparsec >= 0.10.0.0,
-                yesod-routes
+                yesod-routes,
+                network
 
 source-repository head
         type:     git
