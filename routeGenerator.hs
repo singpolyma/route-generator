@@ -54,20 +54,27 @@ argList :: String -> Int -> [String]
 argList s n = snd $ until ((<1) . fst)
 	(\(n,xs) -> (n-1, (s ++ show n):xs)) (n,[])
 
+multiArg :: Route -> Int
+multiArg (Route {multi = True}) = 1
+multiArg _ = 0
+
 emitPathHelpers :: [Route] -> Int -> IO ()
 emitPathHelpers rs nArgs = mapM_ emitPathHelper rs
 	where
+	escapeURI = "(escapeURIString (\\c -> not (isReserved c || not (isUnescapedInURI c))) . unpack)"
 	emitPathHelper r = do
-		let args = argList "arg" (length $ filter isDynamic (pieces r))
+		let args = argList "arg" (length (filter isDynamic (pieces r)) + multiArg r)
 		T.putStr (target r)
 		putStr "Path "
 		putStr (unwords args)
-		putStr " = URI \"\" Nothing ('/' : intercalate \"/\" ["
+		putStr " = URI \"\" Nothing ('/' : intercalate \"/\" (["
 		putStr $ intercalate ", " $ snd $ foldr (\p (n,xs) -> case p of
-				Dynamic -> (n-1, ("escapeURIString (\\c -> not (isReserved c || not (isUnescapedInURI c)) ) $ unpack $ toPathPiece arg" ++ show n):xs)
+				Dynamic -> (n-1, (escapeURI ++ " $ toPathPiece arg" ++ show n):xs)
 				Static s -> (n, show s : xs)
-			) (length args, []) (pieces r)
-		putStrLn "]) \"\" \"\""
+			) (length args - multiArg r, []) (pieces r)
+		putStr "]"
+		when (multi r) (putStr $ " ++ map " ++ escapeURI ++ " (toPathMultiPiece arg" ++ show (length args) ++ ")")
+		putStrLn ")) \"\" \"\""
 		-- The where clause forces the typechecker to infer that our arguments
 		-- are of the same type as the arguments of the action we map to.
 		putStrLn "\twhere"
@@ -102,26 +109,26 @@ emitRoutes rs nArgs = do
 		",\n" ++
 
 		"\t\t\trhDispatch = (\\(" ++
-		piecesPattern (pieces r) ++
+		piecesPattern (pieces r) (multi r) ++
 		") -> return (" ++
 		T.unpack (target r) ++
 		" " ++ unwords args ++
 		")" ++
-		piecesAp (pieces r) ++
+		piecesAp (pieces r) (multi r) ++
 		")\n" ++
 
 		"\t\t}"
 
-	piecesAp pieces = concat $ fst $ foldr (\p (ps,c) -> case p of
+	piecesAp pieces multi = concat $ fst $ foldr (\p (ps,c) -> case p of
 			Dynamic -> ((" `ap` (fromPathPiece val" ++ show c ++ ")"):ps, c+1)
 			Static _ -> (ps, c)
-		) ([],0::Int) pieces
+		) (if multi then [" `ap` (fromPathMultiPiece m)"] else [],0::Int) pieces
 
-	piecesPattern pieces = intercalate ":" $ ("_":) $ fst $
+	piecesPattern pieces multi = intercalate ":" $ ("_":) $ fst $
 		foldr (\p (ps,c) -> case p of
 			Dynamic -> (("val" ++ show c):ps, c+1)
 			Static _ -> ("_":ps, c)
-		) (["_"],0::Int) pieces
+		) (if multi then ["m"] else ["_"],0::Int) pieces
 
 parser :: Parser [Route]
 parser = many1 $ do
@@ -176,14 +183,14 @@ main = do
 		when (Routes `elem` flags) $ do
 			putStrLn "import Control.Monad (ap)"
 			putStrLn "import Data.Text (pack)"
-			putStrLn "import Web.PathPieces (fromPathPiece)"
+			putStrLn "import Web.PathPieces (fromPathPiece, fromPathMultiPiece)"
 			putStrLn "import Yesod.Routes.Dispatch (Route(..), Piece(Static, Dynamic))"
 
 		when (PathHelpers `elem` flags) $ do
 			putStrLn "import Data.List (intercalate)"
 			putStrLn "import Network.URI (URI(..), escapeURIString, isReserved, isUnescapedInURI)"
 			putStrLn "import Data.Text (unpack)"
-			putStrLn "import Web.PathPieces (toPathPiece)"
+			putStrLn "import Web.PathPieces (toPathPiece, toPathMultiPiece)"
 
 		putStrLn ""
 

@@ -26,4 +26,5 @@ test _ val _ = return $ responseLBS ok200 [("Content-Type", "text/plain")] (text
 test2 :: String -> Integer -> Application
 test2 _ val _ = return $ responseLBS ok200 [("Content-Type", "text/plain")] (showUTF8 val)
 
-test3 some val env = return $ responseLBS ok200 [("Content-Type", "text/plain")] (textToUTF8 val `mappend` "\n\n" `mappend` showUTF8 (pathInfo env) `mappend` "\n\n" `mappend` showUTF8 some)
+test3 :: String -> T.Text -> [String] -> Application
+test3 some val multi env = return $ responseLBS ok200 [("Content-Type", "text/plain")] (textToUTF8 val `mappend` "\n\n" `mappend` showUTF8 multi `mappend` "\n\n" `mappend` showUTF8 (pathInfo env) `mappend` "\n\n" `mappend` showUTF8 some)
