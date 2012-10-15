@@ -174,6 +174,9 @@ main = do
 		Right routes <- fmap (parseOnly parser) $ T.readFile input
 
 		when (Routes `elem` flags) $ do
+			-- GHC pragma turns off warnings we know about
+			-- Should be ignored by other compilers, so is safe
+			putStrLn "{-# OPTIONS_GHC -fno-warn-missing-signatures #-}"
 			putStrLn "module Routes where"
 			putStrLn ""
 
