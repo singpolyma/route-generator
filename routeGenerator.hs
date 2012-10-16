@@ -63,19 +63,19 @@ emitPathHelpers :: [Route] -> Int -> IO ()
 emitPathHelpers rs nArgs = mapM_ emitPathHelper rs
 	where
 	doEscapeURI = escapeURIString (\c -> not (isReserved c || not (isUnescapedInURI c))) . T.unpack
-	escapeURI = "(escapeURIString (\\c -> not (isReserved c || not (isUnescapedInURI c))) . unpack)"
+	escapeURI = "(Network.URI.escapeURIString (\\c -> not (Network.URI.isReserved c || not (Network.URI.isUnescapedInURI c))) . Data.Text.unpack)"
 	emitPathHelper r = do
 		let args = argList "arg" (length (filter isDynamic (pieces r)) + multiArg r)
 		T.putStr (target r)
 		putStr "Path "
 		putStr (unwords args)
-		putStr " = URI \"\" Nothing ('/' : intercalate \"/\" (["
+		putStr " = Network.URI.URI \"\" Nothing ('/' : Data.List.intercalate \"/\" (["
 		putStr $ intercalate ", " $ snd $ foldr (\p (n,xs) -> case p of
-				Dynamic -> (n-1, (escapeURI ++ " $ toPathPiece arg" ++ show n):xs)
+				Dynamic -> (n-1, (escapeURI ++ " $ Web.PathPieces.toPathPiece arg" ++ show n):xs)
 				Static s -> (n, show (doEscapeURI s) : xs)
 			) (length args - multiArg r, []) (pieces r)
 		putStr "]"
-		when (multi r) (putStr $ " ++ map " ++ escapeURI ++ " (toPathMultiPiece arg" ++ show (length args) ++ ")")
+		when (multi r) (putStr $ " ++ map " ++ escapeURI ++ " (Web.PathPieces.toPathMultiPiece arg" ++ show (length args) ++ ")")
 		putStrLn ")) \"\" \"\""
 		-- The where clause forces the typechecker to infer that our arguments
 		-- are of the same type as the arguments of the action we map to.
@@ -191,11 +191,12 @@ main = do
 			putStrLn "import Web.PathPieces (fromPathPiece, fromPathMultiPiece)"
 			putStrLn "import Yesod.Routes.Dispatch (Route(..), Piece(Static, Dynamic))"
 
+		-- Fully qualified to help when using with CPP
 		when (PathHelpers `elem` flags) $ do
-			putStrLn "import Data.List (intercalate)"
-			putStrLn "import Network.URI (URI(..), escapeURIString, isReserved, isUnescapedInURI)"
-			putStrLn "import Data.Text (unpack)"
-			putStrLn "import Web.PathPieces (toPathPiece, toPathMultiPiece)"
+			putStrLn "import qualified Data.List (intercalate)"
+			putStrLn "import qualified Network.URI (URI(..), escapeURIString, isReserved, isUnescapedInURI)"
+			putStrLn "import qualified Data.Text (unpack)"
+			putStrLn "import qualified Web.PathPieces (toPathPiece, toPathMultiPiece)"
 
 		putStrLn ""
 
