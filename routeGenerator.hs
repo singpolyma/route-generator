@@ -69,7 +69,7 @@ emitPathHelpers rs nArgs = mapM_ emitPathHelper rs
 		T.putStr (target r)
 		putStr "Path "
 		putStr (unwords args)
-		putStr " = Network.URI.URI \"\" Nothing ('/' : Data.List.intercalate \"/\" (["
+		putStr " = Network.URI.Partial.fromURI $ Network.URI.URI \"\" Nothing (Data.List.intercalate \"/\" (["
 		putStr $ intercalate ", " $ snd $ foldr (\p (n,xs) -> case p of
 				Dynamic -> (n-1, (escapeURI ++ " $ Web.PathPieces.toPathPiece arg" ++ show n):xs)
 				Static s -> (n, show (doEscapeURI s) : xs)
@@ -197,6 +197,7 @@ main = do
 			putStrLn "import qualified Network.URI (URI(..), escapeURIString, isReserved, isUnescapedInURI)"
 			putStrLn "import qualified Data.Text (unpack)"
 			putStrLn "import qualified Web.PathPieces (toPathPiece, toPathMultiPiece)"
+			putStrLn "import qualified Network.URI.Partial"
 
 		putStrLn ""
 
