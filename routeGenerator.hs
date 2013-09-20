@@ -18,7 +18,7 @@ import qualified Data.Text.IO as T
 import Data.Attoparsec.Text
 import Control.Applicative
 
-data Flag = Help | PathHelpers | Routes | NArgs Int | Mod String deriving (Show, Read, Eq)
+data Flag = Help | PathHelpers | Routes | NArgs Int | Mod String | OutputName String deriving (Show, Read, Eq)
 
 flags :: [OptDescr Flag]
 flags = [
@@ -26,6 +26,7 @@ flags = [
 		Option ['p'] ["pathHelpers"] (NoArg PathHelpers) "Generate actionPath helper functions.",
 		Option ['m'] ["module"] (ReqArg Mod "MODULE") "Implementation module to import.",
 		Option ['n'] ["nArgs"] (ReqArg (NArgs . read) "NARGS") "Number of arguments the `route` function takes.",
+		Option ['o'] ["outputName"] (ReqArg OutputName "NAME") "Name of the output module (defaults to Routes).",
 		Option ['h'] ["help"] (NoArg Help) "Show this help text."
 	]
 
@@ -33,7 +34,7 @@ usage :: [String] -> IO ()
 usage errors = do
 	mapM_ (hPutStrLn stderr) errors
 	name <- getProgName
-	hPutStrLn stderr $ usageInfo (name ++ " -r -p [-m MODULE] [-n NARGS] <input-file>") flags
+	hPutStrLn stderr $ usageInfo (name ++ " -r -p [-m MODULE] [-n NARGS] [-o NAME] <input-file>") flags
 
 data Route = Route {
 		method :: Text,
@@ -177,7 +178,7 @@ main = do
 			-- GHC pragma turns off warnings we know about
 			-- Should be ignored by other compilers, so is safe
 			putStrLn "{-# OPTIONS_GHC -fno-warn-missing-signatures #-}"
-			putStrLn "module Routes where"
+			putStrLn $ "module " ++ getOutputName flags ++ " where"
 			putStrLn ""
 
 		mapM_ (\flag -> case flag of
@@ -205,6 +206,10 @@ main = do
 		when (PathHelpers `elem` flags) (emitPathHelpers routes nArgs)
 		when (Routes `elem` flags)  (emitRoutes routes nArgs)
 
+	getOutputName = foldr (\flag n -> case flag of
+			OutputName n' -> n'
+			_ -> n
+		) "Routes"
 	getNArgs = foldr (\flag n -> case (n,flag) of
 			(0, NArgs n) -> n
 			_ -> n
