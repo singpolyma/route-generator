@@ -7,7 +7,7 @@ import System.Console.GetOpt (getOpt, usageInfo, ArgOrder(..), OptDescr(..), Arg
 import System.IO (hPutStrLn, stderr)
 import Data.List (intercalate)
 import Data.Char (isUpper, isSpace)
-import Data.Maybe (catMaybes, isJust)
+import Data.Maybe (catMaybes, isJust, fromMaybe)
 import Yesod.Routes.Dispatch (Piece(Static, Dynamic))
 import Network.URI (escapeURIString, isReserved, isUnescapedInURI)
 
@@ -170,47 +170,48 @@ main = do
 			hPutStrLn stderr "Must pass -r or -p"
 			usage errors >> exitFailure
 		_ -> main' (head args) flags
-	where
-	main' input flags = do
-		Right routes <- fmap (parseOnly parser) $ T.readFile input
 
-		when (Routes `elem` flags) $ do
-			-- GHC pragma turns off warnings we know about
-			-- Should be ignored by other compilers, so is safe
-			putStrLn "{-# OPTIONS_GHC -fno-warn-missing-signatures #-}"
-			putStrLn $ "module " ++ getOutputName flags ++ " where"
-			putStrLn ""
+main' :: FilePath -> [Flag] -> IO ()
+main' input flags = do
+	Right routes <- fmap (parseOnly parser) $ T.readFile input
 
-		mapM_ (\flag -> case flag of
-				Mod m -> putStrLn $ "import " ++ m
-				_ -> return ()
-			) flags
-
-		when (Routes `elem` flags) $ do
-			putStrLn "import Control.Monad (ap)"
-			putStrLn "import Data.Text (pack)"
-			putStrLn "import Web.PathPieces (fromPathPiece, fromPathMultiPiece)"
-			putStrLn "import Yesod.Routes.Dispatch (Route(..), Piece(Static, Dynamic))"
-
-		-- Fully qualified to help when using with CPP
-		when (PathHelpers `elem` flags) $ do
-			putStrLn "import qualified Data.List (intercalate)"
-			putStrLn "import qualified Network.URI (URI(..), escapeURIString, isReserved, isUnescapedInURI)"
-			putStrLn "import qualified Data.Text (unpack)"
-			putStrLn "import qualified Web.PathPieces (toPathPiece, toPathMultiPiece)"
-			putStrLn "import qualified Network.URI.Partial"
-
+	when (Routes `elem` flags) $ do
+		-- GHC pragma turns off warnings we know about
+		-- Should be ignored by other compilers, so is safe
+		putStrLn "{-# OPTIONS_GHC -fno-warn-missing-signatures #-}"
+		putStrLn $ "module " ++ fromFlags "Routes" getOutputName ++ " where"
 		putStrLn ""
 
-		let nArgs = getNArgs flags
-		when (PathHelpers `elem` flags) (emitPathHelpers routes nArgs)
-		when (Routes `elem` flags)  (emitRoutes routes nArgs)
+	mapM_ (\flag -> case flag of
+			Mod m -> putStrLn $ "import " ++ m
+			_ -> return ()
+		) flags
 
-	getOutputName = foldr (\flag n -> case flag of
-			OutputName n' -> n'
-			_ -> n
-		) "Routes"
-	getNArgs = foldr (\flag n -> case (n,flag) of
-			(0, NArgs n) -> n
-			_ -> n
-		) 0
+	when (Routes `elem` flags) $ do
+		putStrLn "import Control.Monad (ap)"
+		putStrLn "import Data.Text (pack)"
+		putStrLn "import Web.PathPieces (fromPathPiece, fromPathMultiPiece)"
+		putStrLn "import Yesod.Routes.Dispatch (Route(..), Piece(Static, Dynamic))"
+
+	-- Fully qualified to help when using with CPP
+	when (PathHelpers `elem` flags) $ do
+		putStrLn "import qualified Data.List (intercalate)"
+		putStrLn "import qualified Network.URI (URI(..), escapeURIString, isReserved, isUnescapedInURI)"
+		putStrLn "import qualified Data.Text (unpack)"
+		putStrLn "import qualified Web.PathPieces (toPathPiece, toPathMultiPiece)"
+		putStrLn "import qualified Network.URI.Partial"
+
+	putStrLn ""
+
+	let nArgs = fromFlags 0 getNArg
+	when (PathHelpers `elem` flags) (emitPathHelpers routes nArgs)
+	when (Routes `elem` flags)  (emitRoutes routes nArgs)
+
+	where
+	fromFlags def sel = foldr (\f d -> fromMaybe d (sel f)) def flags
+
+	getOutputName (OutputName n) = Just n
+	getOutputName _ = Nothing
+
+	getNArg (NArgs n) = Just n
+	getNArg _ = Nothing
