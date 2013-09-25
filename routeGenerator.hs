@@ -146,7 +146,7 @@ parser = many1 $ do
 	skipSpace
 	t <- target
 	skipWhile (\x -> isSpace x && not (isEndOfLine x))
-	endOfLine
+	optional endOfLine
 	return $ Route m p multi t
 	where
 	target = takeWhile1 (not . isSpace)
