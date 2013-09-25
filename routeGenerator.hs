@@ -135,20 +135,20 @@ emitRoutes rs nArgs = do
 
 parser :: Parser [Route]
 parser = many1 $ do
-	skipSpace
-	m <- method
-	skipSpace
-	p <- pieces
+	skipSpace'
+	m <- method <?> "http method"
+	skipSpace'
+	p <- pieces <?> "path"
 	multi <- fmap isJust $ option Nothing (fmap Just (char '*'))
-	skipSpace
-	_ <- char '='
-	_ <- char '>'
-	skipSpace
-	t <- target
-	skipWhile (\x -> isSpace x && not (isEndOfLine x))
-	endOfLine
+	skipSpace'
+	_ <- (char '=' >> char '>') <?> "=>"
+	skipSpace'
+	t <- target <?> "action"
+	skipSpace'
+	skipMany1 endOfLine <?> "newline"
 	return $ Route m p multi t
 	where
+	skipSpace' = skipWhile (\x -> isSpace x && not (isEndOfLine x))
 	target = takeWhile1 (not . isSpace)
 	method = takeWhile1 isUpper
 	pieces = fmap catMaybes $ many1 $ do
@@ -157,6 +157,17 @@ parser = many1 $ do
 	piece = dynamic <|> static
 	static = fmap Static (takeWhile1 (\x -> x /= '/' && x /= '*' && not (isSpace x)))
 	dynamic = char ':' >> return Dynamic
+
+myparse :: Parser a -> Text -> Either String a
+myparse parser = format . parse (parser <* endOfInput)
+	where
+	format (Fail t [] "endOfInput") | T.last t /= '\n' =
+		Left ("Unexpected end of input.  Perhaps you are missing a newline? (" ++ show t ++ ")")
+	format (Fail t [] msg) = Left (msg ++ " (" ++ show t ++ ")")
+	format (Fail t (ctx:_) msg) =
+		Left ("Error parsing " ++ ctx ++ ": " ++ msg ++ " (" ++ show t ++ ")")
+	format (Partial k) = format (k T.empty)
+	format (Done _ x) = Right x
 
 main :: IO ()
 main = do
@@ -169,12 +180,13 @@ main = do
 		_ | (Routes `notElem` flags) && (PathHelpers `notElem` flags) -> do
 			hPutStrLn stderr "Must pass -r or -p"
 			usage errors >> exitFailure
-		_ -> main' (head args) flags
+		_ -> myparse parser <$> T.readFile (head args) >>= main' flags
 
-main' :: FilePath -> [Flag] -> IO ()
-main' input flags = do
-	Right routes <- fmap (parseOnly parser) $ T.readFile input
-
+main' :: [Flag] -> Either String [Route] -> IO ()
+main' _ (Left err) = do
+	hPutStrLn stderr "Error in route syntax"
+	hPutStrLn stderr err
+main' flags (Right routes) = do
 	when (Routes `elem` flags) $ do
 		-- GHC pragma turns off warnings we know about
 		-- Should be ignored by other compilers, so is safe
