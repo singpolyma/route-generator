@@ -86,7 +86,7 @@ emitPathHelpers rs nArgs cpp = mapM_ emitPathHelper rs
 		-- The where clause forces the typechecker to infer that our arguments
 		-- are of the same type as the arguments of the action we map to.
 		putStrLn "\twhere"
-		putStr "\ttypeRestrict _ "
+		putStr "\t_typeRestrict _ "
 		putStr (unwords $ argList "undef" nArgs)
 		putStr " = "
 		T.putStr (target r)
