@@ -18,12 +18,13 @@ import qualified Data.Text.IO as T
 import Data.Attoparsec.Text
 import Control.Applicative
 
-data Flag = Help | PathHelpers | Routes | NArgs Int | Mod String | OutputName String deriving (Show, Read, Eq)
+data Flag = Help | CPP | PathHelpers | Routes | NArgs Int | Mod String | OutputName String deriving (Show, Read, Eq)
 
 flags :: [OptDescr Flag]
 flags = [
 		Option ['r'] ["routes"] (NoArg Routes) "Generate routes.",
 		Option ['p'] ["pathHelpers"] (NoArg PathHelpers) "Generate actionPath helper functions.",
+		Option ['c'] ["cpp"] (NoArg CPP) "Use CPP",
 		Option ['m'] ["module"] (ReqArg Mod "MODULE") "Implementation module to import.",
 		Option ['n'] ["nArgs"] (ReqArg (NArgs . read) "NARGS") "Number of arguments the `route` function takes.",
 		Option ['o'] ["outputName"] (ReqArg OutputName "NAME") "Name of the output module (defaults to Routes).",
@@ -60,12 +61,16 @@ multiArg :: Route -> Int
 multiArg (Route {multi = True}) = 1
 multiArg _ = 0
 
-emitPathHelpers :: [Route] -> Int -> IO ()
-emitPathHelpers rs nArgs = mapM_ emitPathHelper rs
+emitPathHelpers :: [Route] -> Int -> Bool -> IO ()
+emitPathHelpers rs nArgs cpp = mapM_ emitPathHelper rs
 	where
 	doEscapeURI = escapeURIString (\c -> not (isReserved c || not (isUnescapedInURI c))) . T.unpack
 	escapeURI = "(Network.URI.escapeURIString (\\c -> not (Network.URI.isReserved c || not (Network.URI.isUnescapedInURI c))) . Data.Text.unpack)"
 	emitPathHelper r = do
+		when cpp $ do
+			putStr "#ifndef NO_"
+			T.putStrLn (target r)
+
 		let args = argList "arg" (length (filter isDynamic (pieces r)) + multiArg r)
 		T.putStr (target r)
 		putStr "Path "
@@ -87,6 +92,7 @@ emitPathHelpers rs nArgs = mapM_ emitPathHelper rs
 		T.putStr (target r)
 		putStr " "
 		putStrLn $ unwords $ argList "undef" nArgs ++ args
+		when cpp $ putStrLn "#endif"
 		putStrLn ""
 
 emitRoutes :: [Route] -> Int -> IO ()
@@ -216,7 +222,7 @@ main' flags (Right routes) = do
 	putStrLn ""
 
 	let nArgs = fromFlags 0 getNArg
-	when (PathHelpers `elem` flags) (emitPathHelpers routes nArgs)
+	when (PathHelpers `elem` flags) (emitPathHelpers routes nArgs (CPP`elem`flags))
 	when (Routes `elem` flags)  (emitRoutes routes nArgs)
 
 	where
